@@ -2,14 +2,20 @@ package com.stay.reservation.bookingpayment.product.loader;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.stay.reservation.bookingpayment.product.domain.Product;
 import com.stay.reservation.bookingpayment.product.repository.ProductRepository;
+import com.stay.reservation.bookingpayment.roomtype.domain.RoomType;
+import com.stay.reservation.bookingpayment.roomtype.repository.RoomTypeRepository;
+import com.stay.reservation.bookingpayment.user.domain.UserWallet;
+import com.stay.reservation.bookingpayment.user.repository.UserWalletRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,130 +25,95 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProductDataInitializer implements CommandLineRunner {
 
+	private final RoomTypeRepository roomTypeRepository;
 	private final ProductRepository productRepository;
+	private final UserWalletRepository userWalletRepository;
 
 	@Override
+	@Transactional
 	public void run(String... args) {
-		if (productRepository.count() == 0) {
-			log.info("Starting Product database initialization with 10 realistic products...");
+		log.info("Starting data initialization: RoomType → Product → UserWallet...");
 
-			List<Product> products = new ArrayList<>();
-			LocalDate baseDate = LocalDate.now().plusDays(7);
+		seedRoomTypesAndProducts();
+		seedUserWallets();
 
-			// 1. 서울 호캉스 호텔 상품
+		log.info("Data initialization complete.");
+	}
+
+	private void seedRoomTypesAndProducts() {
+		// ── Step 1. RoomType 저장 ────────────────────────────────────────────────
+		RoomType deluxeDouble = roomTypeRepository.save(RoomType.builder()
+			.title("신라호텔 서울 디럭스 더블룸")
+			.originalPrice(250000L)
+			.checkInTime(LocalTime.of(15, 0))
+			.checkOutTime(LocalTime.of(11, 0))
+			.build());
+
+		RoomType suiteRoom = roomTypeRepository.save(RoomType.builder()
+			.title("신라호텔 서울 프리미어 스위트룸")
+			.originalPrice(600000L)
+			.checkInTime(LocalTime.of(15, 0))
+			.checkOutTime(LocalTime.of(12, 0))
+			.build());
+
+		RoomType poolVilla = roomTypeRepository.save(RoomType.builder()
+			.title("제주 감성 독채 풀빌라")
+			.originalPrice(500000L)
+			.checkInTime(LocalTime.of(16, 0))
+			.checkOutTime(LocalTime.of(11, 0))
+			.build());
+
+		log.info("Step 1 — RoomType 저장 완료: deluxeId={}, suiteId={}, poolVillaId={}", deluxeDouble.getId(),
+			suiteRoom.getId(), poolVilla.getId());
+
+		// ── Step 2. Product 저장 ─────────────
+		List<Product> products = new ArrayList<>();
+		LocalDate baseDate = LocalDate.of(2026, 12, 24);
+		LocalDateTime openNow = LocalDateTime.now().minusHours(1);
+
+		// A. 디럭스룸 4개 상품 등록 (12/24 ~ 12/27 투숙)
+		for (int i = 0; i < 4; i++) {
 			products.add(Product.builder()
-				.title("서울 디럭스 호캉스 더블룸 (웰컴 미니바 패키지)")
-				.originalPrice(350000L)
-				.discountPrice(280000L)
-				.totalStock(5)
-				.checkInTime(baseDate.atTime(15, 0))
-				.checkOutTime(baseDate.plusDays(1).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(1)) // 어제 오픈되어 현재 예약 가능
-				.build());
-
-			// 2. 제주 감성 독채 펜션
-			products.add(Product.builder()
-				.title("제주 감성 독채 감귤밭 스테이")
-				.originalPrice(280000L)
-				.discountPrice(210000L)
-				.totalStock(2)
-				.checkInTime(baseDate.plusDays(1).atTime(16, 0))
-				.checkOutTime(baseDate.plusDays(2).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(2))
-				.build());
-
-			// 3. 부산 프리미엄 오션뷰 호텔
-			products.add(Product.builder()
-				.title("부산 프리미엄 오션뷰 오션 테라스 더블룸")
-				.originalPrice(450000L)
-				.discountPrice(380000L)
-				.totalStock(8)
-				.checkInTime(baseDate.plusDays(2).atTime(15, 0))
-				.checkOutTime(baseDate.plusDays(3).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(1))
-				.build());
-
-			// 4. 가평 프라이빗 풀빌라
-			products.add(Product.builder()
-				.title("가평 프라이빗 온수풀 빌라 (바비큐 그릴 패키지 포함)")
-				.originalPrice(600000L)
-				.discountPrice(480000L)
-				.totalStock(3)
-				.checkInTime(baseDate.plusDays(3).atTime(15, 0))
-				.checkOutTime(baseDate.plusDays(4).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(3))
-				.build());
-
-			// 5. 강릉 해돋이 뷰 호텔
-			products.add(Product.builder()
-				.title("강릉 정동진 해돋이 뷰 슈페리어 패밀리룸")
-				.originalPrice(220000L)
-				.discountPrice(180000L)
-				.totalStock(15)
-				.checkInTime(baseDate.plusDays(4).atTime(15, 0))
-				.checkOutTime(baseDate.plusDays(5).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(1))
-				.build());
-
-			// 6. 경주 전통 한옥 스테이
-			products.add(Product.builder()
-				.title("경주 한옥 고택 스테이 - 전통 다도 세트 패키지")
-				.originalPrice(180000L)
-				.discountPrice(150000L)
-				.totalStock(4)
-				.checkInTime(baseDate.plusDays(5).atTime(15, 0))
-				.checkOutTime(baseDate.plusDays(6).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(5))
-				.build());
-
-			// 7. 여수 야경 스위트 콘도
-			products.add(Product.builder()
-				.title("여수 돌산대교 야경뷰 스위트 콘도미니엄")
-				.originalPrice(320000L)
-				.discountPrice(260000L)
+				.roomTypeId(deluxeDouble.getId())
+				.stayDate(baseDate.plusDays(i))
+				.price(89000L) // 선착순 초특가 8.9만
 				.totalStock(10)
-				.checkInTime(baseDate.plusDays(6).atTime(15, 0))
-				.checkOutTime(baseDate.plusDays(7).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(1))
+				.openAt(openNow)
 				.build());
-
-			// 8. 인천 네스트 마운틴뷰 호텔
-			products.add(Product.builder()
-				.title("인천 영종도 네스트 감성 마운틴뷰 트윈룸")
-				.originalPrice(250000L)
-				.discountPrice(210000L)
-				.totalStock(12)
-				.checkInTime(baseDate.plusDays(7).atTime(15, 0))
-				.checkOutTime(baseDate.plusDays(8).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(1))
-				.build());
-
-			// 9. 남해 아난티 최고급 펜트하우스
-			products.add(Product.builder()
-				.title("남해 아난티 펜트하우스 프라이빗 패키지 (4인 조식포함)")
-				.originalPrice(850000L)
-				.discountPrice(720000L)
-				.totalStock(1)
-				.checkInTime(baseDate.plusDays(8).atTime(15, 0))
-				.checkOutTime(baseDate.plusDays(9).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(4))
-				.build());
-
-			// 10. 속초 울산바위 뷰 디럭스룸
-			products.add(Product.builder()
-				.title("속초 설악산 울산바위 뷰 패밀리 디럭스룸")
-				.originalPrice(300000L)
-				.discountPrice(240000L)
-				.totalStock(7)
-				.checkInTime(baseDate.plusDays(9).atTime(15, 0))
-				.checkOutTime(baseDate.plusDays(10).atTime(11, 0))
-				.openAt(LocalDateTime.now().minusDays(1))
-				.build());
-
-			productRepository.saveAll(products);
-			log.info("Successfully initialized 10 realistic products in the database.");
-		} else {
-			log.info("Products already exist in the database. Skipping initialization.");
 		}
+
+		// B. 스위트룸 3개 상품 등록 (12/24 ~ 12/26 투숙)
+		for (int i = 0; i < 3; i++) {
+			products.add(Product.builder()
+				.roomTypeId(suiteRoom.getId())
+				.stayDate(baseDate.plusDays(i))
+				.price(159000L) // 스위트 초특가 15.9만
+				.totalStock(10)
+				.openAt(openNow)
+				.build());
+		}
+
+		// C. 풀빌라 3개 상품 등록 (12/24 ~ 12/26 투숙)
+		for (int i = 0; i < 3; i++) {
+			products.add(Product.builder()
+				.roomTypeId(poolVilla.getId())
+				.stayDate(baseDate.plusDays(i))
+				.price(129000L) // 풀빌라 초특가 12.9만
+				.totalStock(10)
+				.openAt(openNow)
+				.build());
+		}
+
+		productRepository.saveAll(products);
+		log.info("Step 2 — Product 저장 완료: 총 10개 상품 등록 완료 (각 재고 10개)");
+	}
+
+	private void seedUserWallets() {
+		userWalletRepository.saveAll(List.of(UserWallet.builder().userId(1001L).pointBalance(50000L).build(),
+			UserWallet.builder().userId(1002L).pointBalance(50000L).build(),
+			UserWallet.builder().userId(1003L).pointBalance(50000L).build(),
+			UserWallet.builder().userId(1004L).pointBalance(50000L).build(),
+			UserWallet.builder().userId(1005L).pointBalance(50000L).build()));
+		log.info("Step 3 — UserWallet 시드 완료: userId 1001~1005, pointBalance=50000 each");
 	}
 }

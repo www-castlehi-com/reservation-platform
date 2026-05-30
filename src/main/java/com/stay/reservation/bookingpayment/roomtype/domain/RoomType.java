@@ -1,7 +1,6 @@
-package com.stay.reservation.bookingpayment.product.domain;
+package com.stay.reservation.bookingpayment.roomtype.domain;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import com.stay.reservation.bookingpayment.common.domain.BaseTimeEntity;
 
@@ -10,9 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,31 +17,26 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "products", uniqueConstraints = @UniqueConstraint(name = "ux_products_room_date", columnNames = {
-	"room_type_id", "stay_date"}), indexes = {@Index(name = "idx_products_room_type_id", columnList = "room_type_id"),
-	@Index(name = "idx_products_open_at", columnList = "open_at")})
+@Table(name = "room_types")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-public class Product extends BaseTimeEntity {
+public class RoomType extends BaseTimeEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
 	@Column(nullable = false)
-	private Long roomTypeId;
+	private String title;
 
 	@Column(nullable = false)
-	private LocalDate stayDate;
+	private Long originalPrice;
 
 	@Column(nullable = false)
-	private Long price;
+	private LocalTime checkInTime;
 
 	@Column(nullable = false)
-	private Integer totalStock;
-
-	@Column(nullable = false)
-	private LocalDateTime openAt;
+	private LocalTime checkOutTime;
 }
