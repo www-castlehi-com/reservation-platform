@@ -5,6 +5,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,7 @@ public class BookingService {
 	private final BookingRepository bookingRepository;
 	private final ProductRepository productRepository;
 	private final UserWalletRepository userWalletRepository;
+	private final StringRedisTemplate redisTemplate;
 
 	@Transactional
 	public BookingResponse createBooking(Long userId, String idempotencyKey, BookingRequest request) {
@@ -52,11 +54,15 @@ public class BookingService {
 			throw new PriceMismatchException();
 		}
 
-		if (product.getTotalStock() <= 0) {
-			log.warn("Product is sold out: {}", request.productId());
+		String key = "stock:product:" + request.productId();
+		Long remaining = redisTemplate.opsForValue().decrement(key);
+
+		if (remaining == null || remaining < 0) {
+			log.warn("Product is sold out in Redis. ProductId: {}, remainingStock after DECR: {}", request.productId(),
+				remaining);
+			redisTemplate.opsForValue().increment(key);
 			throw new SoldOutException(request.productId());
 		}
-		product.decreaseStock();
 
 		String bookingNumber = generateBookingNumber();
 		Booking booking = Booking.builder()
@@ -72,11 +78,11 @@ public class BookingService {
 
 		try {
 			Booking savedBooking = bookingRepository.saveAndFlush(booking);
-			log.info("Booking created successfully. ID: {}, Number: {}", savedBooking.getId(),
+			log.info("Booking created successfully in DB. ID: {}, Number: {}", savedBooking.getId(),
 				savedBooking.getBookingNumber());
 			return BookingResponse.from(savedBooking);
 		} catch (DataIntegrityViolationException e) {
-			log.warn("Duplicate booking request detected for idempotencyKey: {}", idempotencyKey);
+			log.warn("Duplicate booking request detected in DB for idempotencyKey: {}", idempotencyKey);
 			throw new DuplicateBookingException(idempotencyKey);
 		}
 	}
