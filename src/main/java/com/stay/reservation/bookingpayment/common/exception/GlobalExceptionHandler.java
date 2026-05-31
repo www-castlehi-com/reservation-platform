@@ -57,6 +57,16 @@ public class GlobalExceptionHandler {
 			.body(new ErrorResponse("BAD_REQUEST", exception.getMessage()));
 	}
 
+	@ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+	public ResponseEntity<ErrorResponse> handleValidationException(org.springframework.web.bind.MethodArgumentNotValidException exception) {
+		String errorMessage = exception.getBindingResult().getFieldErrors().stream()
+			.map(org.springframework.validation.FieldError::getDefaultMessage)
+			.collect(java.util.stream.Collectors.joining(", "));
+		log.warn("Validation failed: {}", errorMessage);
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+			.body(new ErrorResponse("BAD_REQUEST", errorMessage));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGenericException(Exception exception) {
 		log.error("Unexpected error occurred", exception);
