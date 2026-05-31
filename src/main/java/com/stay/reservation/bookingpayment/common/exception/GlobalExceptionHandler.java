@@ -57,6 +57,13 @@ public class GlobalExceptionHandler {
 			.body(new ErrorResponse("BAD_REQUEST", exception.getMessage()));
 	}
 
+	@ExceptionHandler(IdempotencyConflictException.class)
+	public ResponseEntity<ErrorResponse> handleIdempotencyConflict(IdempotencyConflictException exception) {
+		log.warn("Idempotency conflict: {}", exception.getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+			.body(new ErrorResponse("IDEMPOTENCY_CONFLICT", exception.getMessage()));
+	}
+
 	@ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
 	public ResponseEntity<ErrorResponse> handleValidationException(
 		org.springframework.web.bind.MethodArgumentNotValidException exception) {
