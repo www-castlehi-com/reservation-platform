@@ -38,6 +38,14 @@ public class ProductDataInitializer implements CommandLineRunner {
 
 		if (productRepository.count() > 0) {
 			log.info("Database is already seeded. Skipping DB initialization.");
+
+			if (userWalletRepository.count() < 2000) {
+				log.info("User wallets are insufficient ({} < 2000). Re-seeding user wallets...",
+					userWalletRepository.count());
+				userWalletRepository.deleteAll();
+				seedUserWallets();
+			}
+
 			log.info("Starting Redis stock cache warm-up for existing products...");
 			List<Product> products = productRepository.findAll();
 			for (Product product : products) {
@@ -71,13 +79,8 @@ public class ProductDataInitializer implements CommandLineRunner {
 		LocalDateTime openNow = LocalDateTime.now().minusHours(1); // 즉시 예약 가능하도록 세팅
 
 		// 스위트룸 3개 상품 등록 (12/24 ~ 12/26 투숙)
-		products.add(Product.builder()
-			.roomTypeId(suiteRoom.getId())
-			.stayDate(baseDate)
-			.price(159000L) // 스위트 초특가 15.9만
-			.totalStock(10)
-			.openAt(openNow)
-			.build());
+		products.add(Product.builder().roomTypeId(suiteRoom.getId()).stayDate(baseDate).price(159000L) // 스위트 초특가 15.9만
+			.totalStock(10).openAt(openNow).build());
 
 		List<Product> savedProducts = productRepository.saveAll(products);
 		log.info("Step 2 — Product 저장 완료: 총 10개 상품 등록 완료");
@@ -92,11 +95,11 @@ public class ProductDataInitializer implements CommandLineRunner {
 	}
 
 	private void seedUserWallets() {
-		userWalletRepository.saveAll(List.of(UserWallet.builder().userId(1001L).pointBalance(50000L).build(),
-			UserWallet.builder().userId(1002L).pointBalance(50000L).build(),
-			UserWallet.builder().userId(1003L).pointBalance(50000L).build(),
-			UserWallet.builder().userId(1004L).pointBalance(50000L).build(),
-			UserWallet.builder().userId(1005L).pointBalance(50000L).build()));
-		log.info("Step 3 — UserWallet 시드 완료: userId 1001~1005, pointBalance=50000 each");
+		List<UserWallet> wallets = new ArrayList<>();
+		for (long i = 1001; i <= 3000; i++) {
+			wallets.add(UserWallet.builder().userId(i).pointBalance(50000L).build());
+		}
+		userWalletRepository.saveAll(wallets);
+		log.info("Step 3 — UserWallet 시드 완료: userId 1001~3000, pointBalance=50000 each");
 	}
 }
