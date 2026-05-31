@@ -65,7 +65,7 @@ export default function () {
 
     // 실행된 시나리오가 'idempotency'일 경우 연타 공격
     if (scenario === 'idempotency') {
-        userId = 9990 + __VU; // VU 번호에 따라 9991, 9992, 9993 유저로 격리
+        userId = 1000 + __VU; // VU 번호에 따라 유저 격리
         idempotencyKey = FIXED_KEYS[__VU - 1]; // 해당 VU가 던지는 100번의 요청은 전부 '동일한 키'로 고정
     } else {
         // 일반적인 선착순 트래픽 및 부하 시뮬레이션
