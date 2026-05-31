@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,11 +29,32 @@ public class ProductDataInitializer implements CommandLineRunner {
 	private final RoomTypeRepository roomTypeRepository;
 	private final ProductRepository productRepository;
 	private final UserWalletRepository userWalletRepository;
+	private final StringRedisTemplate redisTemplate;
 
 	@Override
 	@Transactional
 	public void run(String... args) {
 		log.info("Starting data initialization: RoomType → Product → UserWallet...");
+
+		if (productRepository.count() > 0) {
+			log.info("Database is already seeded. Skipping DB initialization.");
+
+			if (userWalletRepository.count() < 2000) {
+				log.info("User wallets are insufficient ({} < 2000). Re-seeding user wallets...",
+					userWalletRepository.count());
+				userWalletRepository.deleteAll();
+				seedUserWallets();
+			}
+
+			log.info("Starting Redis stock cache warm-up for existing products...");
+			List<Product> products = productRepository.findAll();
+			for (Product product : products) {
+				String key = "stock:product:" + product.getId();
+				redisTemplate.opsForValue().set(key, String.valueOf(product.getTotalStock()));
+			}
+			log.info("Redis stock cache warm-up complete for {} existing products.", products.size());
+			return;
+		}
 
 		seedRoomTypesAndProducts();
 		seedUserWallets();
@@ -42,13 +64,6 @@ public class ProductDataInitializer implements CommandLineRunner {
 
 	private void seedRoomTypesAndProducts() {
 		// ── Step 1. RoomType 저장 ────────────────────────────────────────────────
-		RoomType deluxeDouble = roomTypeRepository.save(RoomType.builder()
-			.title("신라호텔 서울 디럭스 더블룸")
-			.originalPrice(250000L)
-			.checkInTime(LocalTime.of(15, 0))
-			.checkOutTime(LocalTime.of(11, 0))
-			.build());
-
 		RoomType suiteRoom = roomTypeRepository.save(RoomType.builder()
 			.title("신라호텔 서울 프리미어 스위트룸")
 			.originalPrice(600000L)
@@ -56,64 +71,35 @@ public class ProductDataInitializer implements CommandLineRunner {
 			.checkOutTime(LocalTime.of(12, 0))
 			.build());
 
-		RoomType poolVilla = roomTypeRepository.save(RoomType.builder()
-			.title("제주 감성 독채 풀빌라")
-			.originalPrice(500000L)
-			.checkInTime(LocalTime.of(16, 0))
-			.checkOutTime(LocalTime.of(11, 0))
-			.build());
+		log.info("Step 1 — RoomType 저장 완료: suiteId={}", suiteRoom.getId());
 
-		log.info("Step 1 — RoomType 저장 완료: deluxeId={}, suiteId={}, poolVillaId={}", deluxeDouble.getId(),
-			suiteRoom.getId(), poolVilla.getId());
-
-		// ── Step 2. Product 저장 ─────────────
+		// ── Step 2. Product 저장 (날짜별 SKU, 총 10개, 각 재고 10개 한정) ─────────────
 		List<Product> products = new ArrayList<>();
-		LocalDate baseDate = LocalDate.of(2026, 12, 24);
-		LocalDateTime openNow = LocalDateTime.now().minusHours(1);
+		LocalDate baseDate = LocalDate.of(2026, 12, 24); // 기준일 (크리스마스 이브)
+		LocalDateTime openNow = LocalDateTime.now().minusHours(1); // 즉시 예약 가능하도록 세팅
 
-		// A. 디럭스룸 4개 상품 등록 (12/24 ~ 12/27 투숙)
-		for (int i = 0; i < 4; i++) {
-			products.add(Product.builder()
-				.roomTypeId(deluxeDouble.getId())
-				.stayDate(baseDate.plusDays(i))
-				.price(89000L) // 선착순 초특가 8.9만
-				.totalStock(10)
-				.openAt(openNow)
-				.build());
+		// 스위트룸 3개 상품 등록 (12/24 ~ 12/26 투숙)
+		products.add(Product.builder().roomTypeId(suiteRoom.getId()).stayDate(baseDate).price(159000L) // 스위트 초특가 15.9만
+			.totalStock(10).openAt(openNow).build());
+
+		List<Product> savedProducts = productRepository.saveAll(products);
+		log.info("Step 2 — Product 저장 완료: 총 10개 상품 등록 완료");
+
+		// ── Step 2-1. Redis 실시간 재고(stock:product:{id}) 웜업 ──────────────────
+		log.info("Step 2-1 — Redis 실시간 재고 키 웜업 시작...");
+		for (Product savedProduct : savedProducts) {
+			String key = "stock:product:" + savedProduct.getId();
+			redisTemplate.opsForValue().set(key, String.valueOf(savedProduct.getTotalStock()));
 		}
-
-		// B. 스위트룸 3개 상품 등록 (12/24 ~ 12/26 투숙)
-		for (int i = 0; i < 3; i++) {
-			products.add(Product.builder()
-				.roomTypeId(suiteRoom.getId())
-				.stayDate(baseDate.plusDays(i))
-				.price(159000L) // 스위트 초특가 15.9만
-				.totalStock(10)
-				.openAt(openNow)
-				.build());
-		}
-
-		// C. 풀빌라 3개 상품 등록 (12/24 ~ 12/26 투숙)
-		for (int i = 0; i < 3; i++) {
-			products.add(Product.builder()
-				.roomTypeId(poolVilla.getId())
-				.stayDate(baseDate.plusDays(i))
-				.price(129000L) // 풀빌라 초특가 12.9만
-				.totalStock(10)
-				.openAt(openNow)
-				.build());
-		}
-
-		productRepository.saveAll(products);
-		log.info("Step 2 — Product 저장 완료: 총 10개 상품 등록 완료 (각 재고 10개)");
+		log.info("Step 2-1 — Redis 실시간 재고 웜업 완료: 10개 상품 재고 각 10개로 웜업 완료");
 	}
 
 	private void seedUserWallets() {
-		userWalletRepository.saveAll(List.of(UserWallet.builder().userId(1001L).pointBalance(50000L).build(),
-			UserWallet.builder().userId(1002L).pointBalance(50000L).build(),
-			UserWallet.builder().userId(1003L).pointBalance(50000L).build(),
-			UserWallet.builder().userId(1004L).pointBalance(50000L).build(),
-			UserWallet.builder().userId(1005L).pointBalance(50000L).build()));
-		log.info("Step 3 — UserWallet 시드 완료: userId 1001~1005, pointBalance=50000 each");
+		List<UserWallet> wallets = new ArrayList<>();
+		for (long i = 1001; i <= 3000; i++) {
+			wallets.add(UserWallet.builder().userId(i).pointBalance(50000L).build());
+		}
+		userWalletRepository.saveAll(wallets);
+		log.info("Step 3 — UserWallet 시드 완료: userId 1001~3000, pointBalance=50000 each");
 	}
 }
