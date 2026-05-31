@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.stay.reservation.bookingpayment.payment.model.PaymentType;
 
-public record CheckoutResponse(ProductInfo product, UserWalletInfo userWallet,
+public record CheckoutResponse(ProductCheckoutInfo product, UserWalletInfo userWallet,
 							   List<PaymentType> supportedPaymentMethods) {
 
 }
