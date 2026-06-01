@@ -22,7 +22,6 @@ import com.stay.reservation.bookingpayment.payment.model.PaymentResult;
 import com.stay.reservation.bookingpayment.payment.model.PaymentType;
 import com.stay.reservation.bookingpayment.payment.repository.PaymentHistoryRepository;
 import com.stay.reservation.bookingpayment.payment.repository.PaymentRepository;
-import com.stay.reservation.bookingpayment.point.domain.PointTransaction;
 import com.stay.reservation.bookingpayment.point.repository.PointTransactionRepository;
 import com.stay.reservation.bookingpayment.product.domain.Product;
 
@@ -85,7 +84,8 @@ public class BookingPersistenceService {
 					pointTransactionRepository.findById(txId).ifPresent(tx -> {
 						tx.updateBookingId(savedBooking.getId());
 						pointTransactionRepository.save(tx);
-						log.info("Successfully linked PointTransaction ID {} with Booking ID {}", txId, savedBooking.getId());
+						log.info("Successfully linked PointTransaction ID {} with Booking ID {}", txId,
+							savedBooking.getId());
 					});
 				} catch (Exception ex) {
 					log.error("Failed to link PointTransaction with Booking ID. txId={}", result.transactionId(), ex);

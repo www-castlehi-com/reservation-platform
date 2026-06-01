@@ -2,6 +2,8 @@ package com.stay.reservation.bookingpayment.booking.service;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -9,8 +11,11 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,18 +28,12 @@ import com.stay.reservation.bookingpayment.payment.domain.PaymentStatus;
 import com.stay.reservation.bookingpayment.payment.exception.PaymentFailedException;
 import com.stay.reservation.bookingpayment.payment.model.PaymentType;
 import com.stay.reservation.bookingpayment.payment.port.PointBalancePort;
+import com.stay.reservation.bookingpayment.payment.port.pg.PgAuthorizeRequest;
 import com.stay.reservation.bookingpayment.payment.port.pg.PgClient;
 import com.stay.reservation.bookingpayment.payment.port.pg.PgResponse;
-import com.stay.reservation.bookingpayment.payment.port.pg.PgAuthorizeRequest;
 import com.stay.reservation.bookingpayment.payment.repository.PaymentRepository;
 import com.stay.reservation.bookingpayment.user.domain.UserWallet;
 import com.stay.reservation.bookingpayment.user.repository.UserWalletRepository;
-
-import org.mockito.InOrder;
-import org.springframework.boot.test.mock.mockito.SpyBean;
-import org.springframework.beans.factory.annotation.Qualifier;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
 
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @Transactional
@@ -151,15 +150,13 @@ class BookingServiceIntegrationTest {
 		walletRepository.saveAndFlush(wallet);
 
 		// 카드 결제 요청(149,000원) 시 한도 초과(LIMIT_EXCEEDED) 오류가 발생하도록 스파이 스터빙
-		doReturn(PgResponse.declined("LIMIT_EXCEEDED", "결제 한도 초과"))
-			.when(cardPgClient).authorize(argThat(req -> req.amount() == 149000L));
+		doReturn(PgResponse.declined("LIMIT_EXCEEDED", "결제 한도 초과")).when(cardPgClient)
+			.authorize(argThat(req -> req.amount() == 149000L));
 
 		String idempotencyKey = UUID.randomUUID().toString();
 		BookingRequest.Payment paymentDto = new BookingRequest.Payment(159000L,
-			List.of(
-				new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 149000L, "card-token-123", null),
-				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 10000L, null, null)
-			));
+			List.of(new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 149000L, "card-token-123", null),
+				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 10000L, null, null)));
 		BookingRequest request = new BookingRequest(PRODUCT_ID, paymentDto, "홍길동", "010-1234-5678");
 
 		// when & then: 결제 실패 예외가 정확하게 던져지는지 확인
@@ -196,10 +193,8 @@ class BookingServiceIntegrationTest {
 		String idempotencyKey = UUID.randomUUID().toString();
 		// 입력으로 카드 결제를 1번에 두고, 포인트를 2번에 둠
 		BookingRequest.Payment paymentDto = new BookingRequest.Payment(159000L,
-			List.of(
-				new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 149000L, "card-token-123", null),
-				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 10000L, null, null)
-			));
+			List.of(new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 149000L, "card-token-123", null),
+				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 10000L, null, null)));
 		BookingRequest request = new BookingRequest(PRODUCT_ID, paymentDto, "홍길동", "010-1234-5678");
 
 		// when
@@ -226,19 +221,16 @@ class BookingServiceIntegrationTest {
 		walletRepository.saveAndFlush(wallet);
 
 		// 1. 카드 결제(149,000원) 시 한도 초과 오류 모킹 (복구 보상 트랜잭션 유도)
-		doReturn(PgResponse.declined("LIMIT_EXCEEDED", "결제 한도 초과"))
-			.when(cardPgClient).authorize(argThat(req -> req.amount() == 149000L));
+		doReturn(PgResponse.declined("LIMIT_EXCEEDED", "결제 한도 초과")).when(cardPgClient)
+			.authorize(argThat(req -> req.amount() == 149000L));
 
 		// 2. 포인트 환불(restore) 과정에서 예외가 발생하도록 강제 스파이 스터빙 (보상 과정 중 부분 실패 연출)
-		doThrow(new RuntimeException("포인트 환불 통신망 장애"))
-			.when(pointBalancePort).restore(anyString(), eq(10000L));
+		doThrow(new RuntimeException("포인트 환불 통신망 장애")).when(pointBalancePort).restore(anyString(), eq(10000L));
 
 		String idempotencyKey = UUID.randomUUID().toString();
 		BookingRequest.Payment paymentDto = new BookingRequest.Payment(159000L,
-			List.of(
-				new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 149000L, "card-token-123", null),
-				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 10000L, null, null)
-			));
+			List.of(new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 149000L, "card-token-123", null),
+				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 10000L, null, null)));
 		BookingRequest request = new BookingRequest(PRODUCT_ID, paymentDto, "홍길동", "010-1234-5678");
 
 		// when & then: 예약은 여전히 실패(PaymentFailedException)해야 함
@@ -266,11 +258,9 @@ class BookingServiceIntegrationTest {
 		walletRepository.saveAndFlush(wallet);
 
 		String idempotencyKey = UUID.randomUUID().toString();
-		BookingRequest.Payment paymentDto = new BookingRequest.Payment(159000L,
-			List.of(
-				new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 149000L, "tok_decline_limit_exceeded", null),
-				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 10000L, null, null)
-			));
+		BookingRequest.Payment paymentDto = new BookingRequest.Payment(159000L, List.of(
+			new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 149000L, "tok_decline_limit_exceeded", null),
+			new BookingRequest.Payment.Method(PaymentType.Y_POINT, 10000L, null, null)));
 		BookingRequest request = new BookingRequest(PRODUCT_ID, paymentDto, "홍길동", "010-1234-5678");
 
 		// when & then: 한도 초과 에러가 발생해야 함
