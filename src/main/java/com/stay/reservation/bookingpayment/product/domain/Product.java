@@ -47,4 +47,8 @@ public class Product extends BaseTimeEntity {
 
 	@Column(nullable = false)
 	private LocalDateTime openAt;
+
+	public void decreaseStock() {
+		this.totalStock--;
+	}
 }

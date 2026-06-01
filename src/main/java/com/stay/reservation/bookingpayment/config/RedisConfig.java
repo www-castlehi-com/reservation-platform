@@ -7,6 +7,10 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.data.redis.core.script.RedisScript;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.stay.reservation.bookingpayment.checkout.dto.CachedProductInfo;
@@ -35,5 +39,11 @@ public class RedisConfig {
 		template.afterPropertiesSet();
 
 		return template;
+	}
+
+	@Bean
+	public RedisScript<Long> reserveStockScript() {
+		Resource script = new ClassPathResource("scripts/reserve_stock.lua");
+		return RedisScript.of(script, Long.class);
 	}
 }

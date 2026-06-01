@@ -26,6 +26,26 @@ public class GlobalExceptionHandler {
 			.body(new ErrorResponse("INVALID_USER", exception.getMessage()));
 	}
 
+	@ExceptionHandler(SoldOutException.class)
+	public ResponseEntity<ErrorResponse> handleSoldOut(SoldOutException exception) {
+		log.warn("Sold out: {}", exception.getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("SOLD_OUT", exception.getMessage()));
+	}
+
+	@ExceptionHandler(DuplicateBookingException.class)
+	public ResponseEntity<ErrorResponse> handleDuplicateBooking(DuplicateBookingException exception) {
+		log.warn("Duplicate booking: {}", exception.getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+			.body(new ErrorResponse("DUPLICATE_BOOKING", exception.getMessage()));
+	}
+
+	@ExceptionHandler(PriceMismatchException.class)
+	public ResponseEntity<ErrorResponse> handlePriceMismatch(PriceMismatchException exception) {
+		log.warn("Price mismatch: {}", exception.getMessage());
+		return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+			.body(new ErrorResponse("PRICE_MISMATCH", exception.getMessage()));
+	}
+
 	@ExceptionHandler(MissingRequestHeaderException.class)
 	public ResponseEntity<ErrorResponse> handleMissingHeader(MissingRequestHeaderException exception) {
 		if ("X-User-Id".equals(exception.getHeaderName())) {
@@ -35,6 +55,25 @@ public class GlobalExceptionHandler {
 		}
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 			.body(new ErrorResponse("BAD_REQUEST", exception.getMessage()));
+	}
+
+	@ExceptionHandler(IdempotencyConflictException.class)
+	public ResponseEntity<ErrorResponse> handleIdempotencyConflict(IdempotencyConflictException exception) {
+		log.warn("Idempotency conflict: {}", exception.getMessage());
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+			.body(new ErrorResponse("IDEMPOTENCY_CONFLICT", exception.getMessage()));
+	}
+
+	@ExceptionHandler(org.springframework.web.bind.MethodArgumentNotValidException.class)
+	public ResponseEntity<ErrorResponse> handleValidationException(
+		org.springframework.web.bind.MethodArgumentNotValidException exception) {
+		String errorMessage = exception.getBindingResult()
+			.getFieldErrors()
+			.stream()
+			.map(org.springframework.validation.FieldError::getDefaultMessage)
+			.collect(java.util.stream.Collectors.joining(", "));
+		log.warn("Validation failed: {}", errorMessage);
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse("BAD_REQUEST", errorMessage));
 	}
 
 	@ExceptionHandler(Exception.class)
