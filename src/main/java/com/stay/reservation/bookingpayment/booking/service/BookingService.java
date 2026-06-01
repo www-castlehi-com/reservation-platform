@@ -53,14 +53,14 @@ public class BookingService {
 		CompositePaymentResult paymentResult = null;
 
 		try {
+			reserveStock(request.productId());
+			stockDeducted = true;
+
 			if (!userWalletRepository.existsById(userId)) {
 				throw new UserNotFoundException(userId);
 			}
 
 			Product product = getProductAndValidatePrice(request.productId(), request.payment().totalAmount());
-
-			reserveStock(product.getId());
-			stockDeducted = true;
 
 			paymentResult = processPayment(request.payment(), userId, idempotencyKey);
 
@@ -73,6 +73,7 @@ public class BookingService {
 			throw e;
 		} catch (UserNotFoundException | ProductNotFoundException | PriceMismatchException | SoldOutException e) {
 			log.warn("Booking validation failed. idempotencyKey={}", idempotencyKey, e);
+			compensate(stockDeducted, paymentResult, request.productId(), idempotencyKey);
 			throw e;
 		} catch (Exception e) {
 			log.error("Booking failed. idempotencyKey={}", idempotencyKey, e);
