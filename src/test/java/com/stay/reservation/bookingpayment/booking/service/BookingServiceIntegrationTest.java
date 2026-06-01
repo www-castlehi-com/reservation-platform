@@ -253,4 +253,40 @@ class BookingServiceIntegrationTest {
 		// 4. 포인트 환불 메서드가 예외를 뚫고 실제로 호출은 진행되었었는지 검증
 		verify(pointBalancePort).restore(anyString(), eq(10000L));
 	}
+
+	@Test
+	@DisplayName("토큰 기반 한도초과 실패 검증 - 카드 토큰으로 'tok_decline_limit_exceeded'를 넘겼을 때 실제 결제가 거절되고 Saga 보상이 수행되는지 검증")
+	void e2eFailureScenarioWithTokenTest() {
+		// given
+		UserWallet wallet = walletRepository.findById(USER_ID).orElseThrow();
+		long currentBalance = wallet.getPointBalance();
+		if (currentBalance < 50000L) {
+			wallet.addPoint(50000L - currentBalance);
+		}
+		walletRepository.saveAndFlush(wallet);
+
+		String idempotencyKey = UUID.randomUUID().toString();
+		BookingRequest.Payment paymentDto = new BookingRequest.Payment(159000L,
+			List.of(
+				new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 149000L, "tok_decline_limit_exceeded", null),
+				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 10000L, null, null)
+			));
+		BookingRequest request = new BookingRequest(PRODUCT_ID, paymentDto, "홍길동", "010-1234-5678");
+
+		// when & then: 한도 초과 에러가 발생해야 함
+		assertThrows(PaymentFailedException.class, () -> {
+			bookingService.createBooking(request, USER_ID, idempotencyKey);
+		});
+
+		// 1. 예약 미생성 검증
+		assertThat(bookingRepository.findByIdempotencyKey(idempotencyKey)).isEmpty();
+
+		// 2. 포인트 환불 검증 (원복 50000)
+		UserWallet updatedWallet = walletRepository.findById(USER_ID).orElseThrow();
+		assertThat(updatedWallet.getPointBalance()).isEqualTo(50000L);
+
+		// 3. 재고 복구 검증
+		String stock = redisTemplate.opsForValue().get("stock:product:" + PRODUCT_ID);
+		assertThat(stock).isEqualTo("10");
+	}
 }
