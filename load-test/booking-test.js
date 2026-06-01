@@ -75,9 +75,22 @@ export default function () {
 
     const payload = JSON.stringify({
         productId: productId,
+        payment: {
+            totalAmount: 159000,
+            methods: [
+                {
+                    type: 'CREDIT_CARD',
+                    amount: 149000,
+                    cardToken: 'tok_test_concurrency_gate'
+                },
+                {
+                    type: 'Y_POINT',
+                    amount: 10000
+                }
+            ]
+        },
         customerName: `유저-${userId}`,
-        customerPhone: '010-1234-5678',
-        totalAmount: 159000
+        customerPhone: '010-1234-5678'
     });
 
     const params = {
@@ -93,13 +106,13 @@ export default function () {
     // 시나리오별 검증 바운더리 설정
     let ok;
     if (scenario === 'idempotency') {
-        // 멱등성 시나리오의 경우: 100번 중 1번만 성공(201)하고, 나머지 99번은 중복 에러(409 or 422)가 나야 정상
+        // 멱등성 시나리오의 경우: 100번 중 1번만 성공(200 or 201)하고, 나머지 99번은 중복 에러(409 or 422)가 나야 정상
         ok = check(res, {
-            'is processed or blocked gracefully': (r) => r.status === 201 || r.status === 409 || r.status === 422,
+            'is processed or blocked gracefully': (r) => r.status === 200 || r.status === 201 || r.status === 409 || r.status === 422,
         });
     } else {
         ok = check(res, {
-            'is valid sales response': (r) => r.status === 201 || r.status === 409,
+            'is valid sales response': (r) => r.status === 200 || r.status === 201 || r.status === 409,
         });
     }
 
