@@ -1,6 +1,7 @@
 package com.stay.reservation.bookingpayment.payment.domain;
 
 import com.stay.reservation.bookingpayment.common.domain.BaseTimeEntity;
+import com.stay.reservation.bookingpayment.payment.model.PaymentType;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,7 +20,7 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "payments", indexes = {@Index(name = "idx_payments_booking_id", columnList = "booking_id"),
-	@Index(name = "idx_payments_method_type_status", columnList = "method_type, status")})
+	@Index(name = "idx_payments_payment_type_status", columnList = "payment_type, status")})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
@@ -35,7 +36,7 @@ public class Payment extends BaseTimeEntity {
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)
-	private PaymentMethodType methodType;
+	private PaymentType paymentType;
 
 	@Column(nullable = false)
 	private Long amount;

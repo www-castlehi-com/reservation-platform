@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import com.stay.reservation.bookingpayment.payment.exception.InsufficientPointException;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -40,4 +42,15 @@ public class UserWallet {
 
 	@LastModifiedDate
 	private LocalDateTime updatedAt;
+
+	public void deductPoint(long amount) {
+		if (this.pointBalance < amount) {
+			throw new InsufficientPointException(this.userId, this.pointBalance, amount);
+		}
+		this.pointBalance -= amount;
+	}
+
+	public void addPoint(long amount) {
+		this.pointBalance += amount;
+	}
 }
