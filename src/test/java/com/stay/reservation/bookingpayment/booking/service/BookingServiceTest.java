@@ -24,6 +24,7 @@ import com.stay.reservation.bookingpayment.booking.dto.BookingResponse;
 import com.stay.reservation.bookingpayment.common.exception.DuplicateBookingException;
 import com.stay.reservation.bookingpayment.common.exception.IdempotencyConflictException;
 import com.stay.reservation.bookingpayment.common.exception.SoldOutException;
+import com.stay.reservation.bookingpayment.payment.model.PaymentType;
 
 @ExtendWith(MockitoExtension.class)
 class BookingServiceTest {
@@ -48,7 +49,15 @@ class BookingServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		validRequest = new BookingRequest(1L, "홍길동", "010-1234-5678", 159000L);
+		validRequest = new BookingRequest(
+			1L,
+			new BookingRequest.Payment(
+				159000L,
+				List.of(new BookingRequest.Payment.Method(PaymentType.Y_POINT, 159000L, null, null))
+			),
+			"홍길동",
+			"010-1234-5678"
+		);
 		mockResponse = new BookingResponse(1234L, "B20261224-99999", BookingStatus.CONFIRMED, 159000L, java.time.LocalDateTime.now());
 	}
 

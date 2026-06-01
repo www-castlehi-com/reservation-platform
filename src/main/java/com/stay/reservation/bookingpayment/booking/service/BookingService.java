@@ -47,7 +47,7 @@ public class BookingService {
 		Product product = productRepository.findById(request.productId())
 			.orElseThrow(() -> new ProductNotFoundException(request.productId()));
 
-		if (!product.getPrice().equals(request.totalAmount())) {
+		if (!product.getPrice().equals(request.payment().totalAmount())) {
 			throw new PriceMismatchException();
 		}
 
@@ -57,7 +57,7 @@ public class BookingService {
 			.idempotencyKey(idempotencyKey)
 			.userId(userId)
 			.productId(request.productId())
-			.totalAmount(request.totalAmount())
+			.totalAmount(request.payment().totalAmount())
 			.status(BookingStatus.CONFIRMED)
 			.customerName(request.customerName())
 			.customerPhone(request.customerPhone())

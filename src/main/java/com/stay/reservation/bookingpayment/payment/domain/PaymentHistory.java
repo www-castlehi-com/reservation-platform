@@ -43,11 +43,14 @@ public class PaymentHistory {
 	@Column(nullable = false)
 	private PaymentStep step;
 
-	@Column(nullable = false, length = 20)
-	private String status;
+	@Column(nullable = false)
+	private Long amount;
+
+	@Column(length = 100)
+	private String transactionId;
 
 	@Column(length = 255)
-	private String reason;
+	private String message;
 
 	@CreatedDate
 	@Column(updatable = false)
