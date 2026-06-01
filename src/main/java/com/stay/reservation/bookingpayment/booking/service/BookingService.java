@@ -32,6 +32,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BookingService {
 
+	private static final String LOCK_KEY_PREFIX = "idempotency:lock:";
+	private static final Duration LOCK_TTL = Duration.ofSeconds(10);
 	private final BookingRepository bookingRepository;
 	private final ProductRepository productRepository;
 	private final UserWalletRepository userWalletRepository;
@@ -40,9 +42,6 @@ public class BookingService {
 	private final PaymentProcessor paymentProcessor;
 	private final PaymentCommandMapper paymentCommandMapper;
 	private final BookingPersistenceService bookingPersistenceService;
-
-	private static final String LOCK_KEY_PREFIX = "idempotency:lock:";
-	private static final Duration LOCK_TTL = Duration.ofSeconds(10);
 
 	public BookingResponse createBooking(BookingRequest request, Long userId, String idempotencyKey) {
 		BookingResponse existing = checkIdempotency(idempotencyKey);
@@ -68,8 +67,8 @@ public class BookingService {
 
 			paymentResult = processPayment(request.payment(), userId, idempotencyKey);
 
-			Booking savedBooking = bookingPersistenceService.persistBookingAndPayments(
-				request, userId, idempotencyKey, product, paymentResult);
+			Booking savedBooking = bookingPersistenceService.persistBookingAndPayments(request, userId, idempotencyKey,
+				product, paymentResult);
 
 			return BookingResponse.from(savedBooking);
 
@@ -91,8 +90,7 @@ public class BookingService {
 
 	private String acquireIdempotencyLock(String idempotencyKey) {
 		String lockKey = LOCK_KEY_PREFIX + idempotencyKey;
-		Boolean locked = redisTemplate.opsForValue()
-			.setIfAbsent(lockKey, "PROCESSING", LOCK_TTL);
+		Boolean locked = redisTemplate.opsForValue().setIfAbsent(lockKey, "PROCESSING", LOCK_TTL);
 		if (!Boolean.TRUE.equals(locked)) {
 			throw new IdempotencyConflictException(idempotencyKey);
 		}
@@ -129,19 +127,14 @@ public class BookingService {
 		return paymentResult;
 	}
 
-	private void compensate(
-		boolean stockDeducted,
-		CompositePaymentResult paymentResult,
-		Long productId,
-		String idempotencyKey
-	) {
+	private void compensate(boolean stockDeducted, CompositePaymentResult paymentResult, Long productId,
+		String idempotencyKey) {
 		if (stockDeducted) {
 			try {
 				redisStockManager.rollbackStock(productId);
 				log.info("Stock released for product {} (idempotencyKey={})", productId, idempotencyKey);
 			} catch (Exception ex) {
-				log.error("Stock release failed for product {} (idempotencyKey={})",
-					productId, idempotencyKey, ex);
+				log.error("Stock release failed for product {} (idempotencyKey={})", productId, idempotencyKey, ex);
 			}
 		}
 

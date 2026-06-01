@@ -36,13 +36,8 @@ public class BookingPersistenceService {
 	private final PaymentHistoryRepository paymentHistoryRepository;
 
 	@Transactional
-	public Booking persistBookingAndPayments(
-		BookingRequest request,
-		Long userId,
-		String idempotencyKey,
-		Product product,
-		CompositePaymentResult paymentResult
-	) {
+	public Booking persistBookingAndPayments(BookingRequest request, Long userId, String idempotencyKey,
+		Product product, CompositePaymentResult paymentResult) {
 		Booking booking = Booking.builder()
 			.bookingNumber(generateBookingNumber())
 			.idempotencyKey(idempotencyKey)
@@ -84,7 +79,7 @@ public class BookingPersistenceService {
 	}
 
 	private String generateBookingNumber() {
-		return "B" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)
-			+ "-" + ThreadLocalRandom.current().nextInt(10000, 99999);
+		return "B" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) + "-" + ThreadLocalRandom.current()
+			.nextInt(10000, 99999);
 	}
 }

@@ -10,7 +10,8 @@ public class InsufficientPointException extends RuntimeException {
 	private final long requestedAmount;
 
 	public InsufficientPointException(long userId, long currentBalance, long requestedAmount) {
-		super(String.format("User %d has insufficient points. Current: %d, Requested: %d", userId, currentBalance, requestedAmount));
+		super(String.format("User %d has insufficient points. Current: %d, Requested: %d", userId, currentBalance,
+			requestedAmount));
 		this.userId = userId;
 		this.currentBalance = currentBalance;
 		this.requestedAmount = requestedAmount;

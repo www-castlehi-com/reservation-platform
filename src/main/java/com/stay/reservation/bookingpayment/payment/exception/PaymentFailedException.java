@@ -6,6 +6,7 @@ import lombok.Getter;
 
 @Getter
 public class PaymentFailedException extends RuntimeException {
+
 	private final CompositePaymentResult result;
 
 	public PaymentFailedException(CompositePaymentResult result) {

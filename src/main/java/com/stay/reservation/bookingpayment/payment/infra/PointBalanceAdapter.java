@@ -28,8 +28,7 @@ public class PointBalanceAdapter implements PointBalancePort {
 	public String deduct(long userId, long amount, String idempotencyKey) {
 		log.info("Point deduct: userId={}, amount={}, idempotencyKey={}", userId, amount, idempotencyKey);
 
-		UserWallet wallet = userWalletRepository.findById(userId)
-				.orElseThrow(() -> new UserNotFoundException(userId));
+		UserWallet wallet = userWalletRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
 
 		if (wallet.getPointBalance() < amount) {
 			throw new InsufficientPointException(userId, wallet.getPointBalance(), amount);
@@ -40,13 +39,13 @@ public class PointBalanceAdapter implements PointBalancePort {
 		userWalletRepository.save(wallet);
 
 		PointTransaction pointTransaction = PointTransaction.builder()
-				.userId(userId)
-				.amount(amount)
-				.type(PointTransactionType.USE)
-				.balanceBefore(balanceBefore)
-				.balanceAfter(wallet.getPointBalance())
-				.idempotencyKey(idempotencyKey)
-				.build();
+			.userId(userId)
+			.amount(amount)
+			.type(PointTransactionType.USE)
+			.balanceBefore(balanceBefore)
+			.balanceAfter(wallet.getPointBalance())
+			.idempotencyKey(idempotencyKey)
+			.build();
 
 		PointTransaction saved = pointTransactionRepository.save(pointTransaction);
 		log.info("Point deducted. txId={}, balanceAfter={}", saved.getId(), wallet.getPointBalance());
@@ -60,31 +59,31 @@ public class PointBalanceAdapter implements PointBalancePort {
 		Long originalTransactionId = Long.parseLong(pointTransactionId);
 		log.info("Point restore: originalTransactionId={}, amount={}", originalTransactionId, amount);
 
-		boolean alreadyRestored = pointTransactionRepository
-				.existsByOriginalTransactionIdAndType(originalTransactionId, PointTransactionType.RESTORE);
+		boolean alreadyRestored = pointTransactionRepository.existsByOriginalTransactionIdAndType(originalTransactionId,
+			PointTransactionType.RESTORE);
 		if (alreadyRestored) {
 			log.info("Already restored. Skipping. originalTransactionId={}", originalTransactionId);
 			return pointTransactionId;
 		}
 
 		PointTransaction originalTx = pointTransactionRepository.findById(originalTransactionId)
-				.orElseThrow(() -> new IllegalStateException("Original tx not found: " + originalTransactionId));
+			.orElseThrow(() -> new IllegalStateException("Original tx not found: " + originalTransactionId));
 
 		UserWallet wallet = userWalletRepository.findById(originalTx.getUserId())
-				.orElseThrow(() -> new UserNotFoundException(originalTx.getUserId()));
+			.orElseThrow(() -> new UserNotFoundException(originalTx.getUserId()));
 
 		long balanceBefore = wallet.getPointBalance();
 		wallet.addPoint(amount);
 		userWalletRepository.save(wallet);
 
 		PointTransaction restoreTransaction = PointTransaction.builder()
-				.userId(originalTx.getUserId())
-				.amount(amount)
-				.type(PointTransactionType.RESTORE)
-				.balanceBefore(balanceBefore)
-				.balanceAfter(wallet.getPointBalance())
-				.originalTransactionId(originalTransactionId)
-				.build();
+			.userId(originalTx.getUserId())
+			.amount(amount)
+			.type(PointTransactionType.RESTORE)
+			.balanceBefore(balanceBefore)
+			.balanceAfter(wallet.getPointBalance())
+			.originalTransactionId(originalTransactionId)
+			.build();
 
 		PointTransaction saved = pointTransactionRepository.save(restoreTransaction);
 		log.info("Point restored. restoreTxId={}, balanceAfter={}", saved.getId(), wallet.getPointBalance());

@@ -11,33 +11,17 @@ import com.stay.reservation.bookingpayment.payment.model.PaymentDetail;
 @Component
 public class PaymentCommandMapper {
 
-	public List<PaymentCommand> toCommands(
-		BookingRequest.Payment payment,
-		Long userId,
-		String idempotencyKey
-	) {
-		return payment.methods().stream()
-			.map(method -> toCommand(method, userId, idempotencyKey))
-			.toList();
+	public List<PaymentCommand> toCommands(BookingRequest.Payment payment, Long userId, String idempotencyKey) {
+		return payment.methods().stream().map(method -> toCommand(method, userId, idempotencyKey)).toList();
 	}
 
-	private PaymentCommand toCommand(
-		BookingRequest.Payment.Method method,
-		Long userId,
-		String idempotencyKey
-	) {
+	private PaymentCommand toCommand(BookingRequest.Payment.Method method, Long userId, String idempotencyKey) {
 		PaymentDetail detail = switch (method.type()) {
 			case CREDIT_CARD -> new PaymentDetail.CardPaymentDetail(method.cardToken());
 			case Y_PAY -> new PaymentDetail.YPayPaymentDetail(method.ypayToken());
 			case Y_POINT -> new PaymentDetail.PointPaymentDetail();
 		};
 
-		return new PaymentCommand(
-			idempotencyKey,
-			userId,
-			method.type(),
-			method.amount(),
-			detail
-		);
+		return new PaymentCommand(idempotencyKey, userId, method.type(), method.amount(), detail);
 	}
 }

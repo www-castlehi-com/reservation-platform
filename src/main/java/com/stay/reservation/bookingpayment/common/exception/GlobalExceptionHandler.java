@@ -92,12 +92,8 @@ public class GlobalExceptionHandler {
 		log.warn("Payment failed: {}", exception.getMessage());
 
 		CompositePaymentResult result = exception.getResult();
-		PaymentFailedErrorResponse body = new PaymentFailedErrorResponse(
-			"PAYMENT_FAILED",
-			exception.getMessage(),
-			result.failedPaymentType(),
-			result.compensationCompleted()
-		);
+		PaymentFailedErrorResponse body = new PaymentFailedErrorResponse("PAYMENT_FAILED", exception.getMessage(),
+			result.failedPaymentType(), result.compensationCompleted());
 
 		return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(body);
 	}
@@ -113,10 +109,9 @@ public class GlobalExceptionHandler {
 
 	}
 
-	public record PaymentFailedErrorResponse(
-		String errorCode,
-		String message,
-		com.stay.reservation.bookingpayment.payment.model.PaymentType failedPaymentType,
-		boolean compensationCompleted
-	) {}
+	public record PaymentFailedErrorResponse(String errorCode, String message,
+											 com.stay.reservation.bookingpayment.payment.model.PaymentType failedPaymentType,
+											 boolean compensationCompleted) {
+
+	}
 }

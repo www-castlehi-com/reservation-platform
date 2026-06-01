@@ -35,11 +35,11 @@ class PointBalanceAdapterTest {
 		// given: user 1001 (시드 데이터 유저, pointBalance = 50000)
 		// when
 		String txId = port.deduct(1001L, 10000L, "test-key-001");
-		
+
 		// then
 		UserWallet wallet = walletRepository.findById(1001L).orElseThrow();
 		assertThat(wallet.getPointBalance()).isEqualTo(40000L);
-		
+
 		PointTransaction tx = txRepository.findById(Long.parseLong(txId)).orElseThrow();
 		assertThat(tx.getType()).isEqualTo(PointTransactionType.USE);
 		assertThat(tx.getBalanceBefore()).isEqualTo(50000L);
@@ -51,10 +51,10 @@ class PointBalanceAdapterTest {
 	void restorePointsSuccessfully() {
 		// given: 차감 선행 작업
 		String useTxId = port.deduct(1002L, 10000L, "test-key-002");
-		
+
 		// when
 		port.restore(useTxId, 10000L);
-		
+
 		// then
 		UserWallet wallet = walletRepository.findById(1002L).orElseThrow();
 		assertThat(wallet.getPointBalance()).isEqualTo(50000L);  // 원복
@@ -63,8 +63,8 @@ class PointBalanceAdapterTest {
 	@Test
 	@DisplayName("포인트 차감 예외 - 잔액보다 초과된 차감 요청 발생 시 InsufficientPointException이 전파된다")
 	void deductPointsInsufficientBalanceThrowsException() {
-		assertThatThrownBy(() -> port.deduct(1003L, 999999L, "test-key-003"))
-			.isInstanceOf(InsufficientPointException.class);
+		assertThatThrownBy(() -> port.deduct(1003L, 999999L, "test-key-003")).isInstanceOf(
+			InsufficientPointException.class);
 	}
 
 	@Test
@@ -72,11 +72,11 @@ class PointBalanceAdapterTest {
 	void restorePointsIdempotencyAssured() {
 		// given
 		String useTxId = port.deduct(1004L, 10000L, "test-key-004");
-		
+
 		// when: 같은 트랜잭션 ID에 대해 두 번의 복구 수행
 		port.restore(useTxId, 10000L);
 		port.restore(useTxId, 10000L);  // 두 번째 복구는 멱등성 필터에 의해 스킵되어야 함
-		
+
 		// then: 잔액은 중복 지급 없이 원래 금액인 50,000원으로 단 한 번만 복구 유지됨
 		UserWallet wallet = walletRepository.findById(1004L).orElseThrow();
 		assertThat(wallet.getPointBalance()).isEqualTo(50000L);

@@ -1,7 +1,7 @@
 package com.stay.reservation.bookingpayment.booking.service;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,23 +30,18 @@ import com.stay.reservation.bookingpayment.user.repository.UserWalletRepository;
 @Transactional
 class BookingServiceIntegrationTest {
 
-	@Autowired
-	private BookingService bookingService;
-
-	@Autowired
-	private BookingRepository bookingRepository;
-
-	@Autowired
-	private PaymentRepository paymentRepository;
-
-	@Autowired
-	private UserWalletRepository walletRepository;
-
-	@Autowired
-	private StringRedisTemplate redisTemplate;
-
 	private static final Long USER_ID = 1001L;
 	private static final Long PRODUCT_ID = 1L;
+	@Autowired
+	private BookingService bookingService;
+	@Autowired
+	private BookingRepository bookingRepository;
+	@Autowired
+	private PaymentRepository paymentRepository;
+	@Autowired
+	private UserWalletRepository walletRepository;
+	@Autowired
+	private StringRedisTemplate redisTemplate;
 
 	@BeforeEach
 	void setUp() {
@@ -68,13 +63,9 @@ class BookingServiceIntegrationTest {
 		walletRepository.saveAndFlush(wallet);
 
 		String idempotencyKey = UUID.randomUUID().toString();
-		BookingRequest.Payment paymentDto = new BookingRequest.Payment(
-			159000L,
-			List.of(
-				new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 100000L, "card-token-123", null),
-				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 59000L, null, null)
-			)
-		);
+		BookingRequest.Payment paymentDto = new BookingRequest.Payment(159000L,
+			List.of(new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 100000L, "card-token-123", null),
+				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 59000L, null, null)));
 		BookingRequest request = new BookingRequest(PRODUCT_ID, paymentDto, "홍길동", "010-1234-5678");
 
 		// when
@@ -109,13 +100,9 @@ class BookingServiceIntegrationTest {
 		walletRepository.saveAndFlush(wallet);
 
 		String idempotencyKey = UUID.randomUUID().toString();
-		BookingRequest.Payment paymentDto = new BookingRequest.Payment(
-			159000L,
-			List.of(
-				new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 100000L, "card-token-123", null),
-				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 59000L, null, null)
-			)
-		);
+		BookingRequest.Payment paymentDto = new BookingRequest.Payment(159000L,
+			List.of(new BookingRequest.Payment.Method(PaymentType.CREDIT_CARD, 100000L, "card-token-123", null),
+				new BookingRequest.Payment.Method(PaymentType.Y_POINT, 59000L, null, null)));
 		BookingRequest request = new BookingRequest(PRODUCT_ID, paymentDto, "홍길동", "010-1234-5678");
 
 		// when & then: 결제 실패 예외가 던져져야 함
