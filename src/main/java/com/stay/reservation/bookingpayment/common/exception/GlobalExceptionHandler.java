@@ -6,6 +6,8 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.stay.reservation.bookingpayment.payment.exception.InsufficientPointException;
+
 import lombok.extern.slf4j.Slf4j;
 
 @RestControllerAdvice
@@ -74,6 +76,13 @@ public class GlobalExceptionHandler {
 			.collect(java.util.stream.Collectors.joining(", "));
 		log.warn("Validation failed: {}", errorMessage);
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ErrorResponse("BAD_REQUEST", errorMessage));
+	}
+
+	@ExceptionHandler(InsufficientPointException.class)
+	public ResponseEntity<ErrorResponse> handleInsufficientPoint(InsufficientPointException exception) {
+		log.warn("Insufficient point: {}", exception.getMessage());
+		return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED)
+			.body(new ErrorResponse("INSUFFICIENT_POINT", exception.getMessage()));
 	}
 
 	@ExceptionHandler(Exception.class)

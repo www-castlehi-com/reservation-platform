@@ -49,7 +49,15 @@ public class PointTransaction {
 	private Long amount;
 
 	@Column(nullable = false)
+	private Long balanceBefore;
+
+	@Column(nullable = false)
 	private Long balanceAfter;
+
+	@Column(length = 64)
+	private String idempotencyKey;
+
+	private Long originalTransactionId;
 
 	@CreatedDate
 	@Column(updatable = false)

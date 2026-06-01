@@ -1,11 +1,18 @@
 package com.stay.reservation.bookingpayment.payment.exception;
 
-/**
- * 포인트 잔액이 결제 요청 금액보다 부족할 때 발생한다.
- */
+import lombok.Getter;
+
+@Getter
 public class InsufficientPointException extends RuntimeException {
 
-	public InsufficientPointException(String message) {
-		super(message);
+	private final long userId;
+	private final long currentBalance;
+	private final long requestedAmount;
+
+	public InsufficientPointException(long userId, long currentBalance, long requestedAmount) {
+		super(String.format("User %d has insufficient points. Current: %d, Requested: %d", userId, currentBalance, requestedAmount));
+		this.userId = userId;
+		this.currentBalance = currentBalance;
+		this.requestedAmount = requestedAmount;
 	}
 }
