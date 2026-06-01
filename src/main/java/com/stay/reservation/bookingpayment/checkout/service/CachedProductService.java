@@ -27,11 +27,11 @@ public class CachedProductService {
 	public CachedProductInfo getProductInfo(Long productId) {
 		CachedProductInfo cached = cachedProductInfoCacheRepository.find(productId);
 		if (cached != null) {
-			log.info("ProductInfo cache hit for productId: {}", productId);
+			log.debug("ProductInfo cache hit for productId: {}", productId);
 			return cached;
 		}
 
-		log.info("ProductInfo cache miss for productId: {}", productId);
+		log.debug("ProductInfo cache miss for productId: {}", productId);
 		return loadAndCacheProductInfo(productId);
 	}
 
@@ -40,7 +40,8 @@ public class CachedProductService {
 			.orElseThrow(() -> new ProductNotFoundException(productId));
 
 		RoomType roomType = roomTypeRepository.findById(product.getRoomTypeId())
-			.orElseThrow(() -> new IllegalStateException("RoomType not found for product " + productId));
+			.orElseThrow(() -> new IllegalStateException(
+				"RoomType not found: roomTypeId=" + product.getRoomTypeId() + ", productId=" + productId));
 
 		CachedProductInfo info = CachedProductInfo.from(product, roomType);
 		cachedProductInfoCacheRepository.save(productId, info);

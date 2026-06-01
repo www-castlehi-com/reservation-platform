@@ -12,17 +12,28 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RedisStockManager {
 
+	static final String STOCK_KEY_PREFIX = "stock:product:";
+	private static final long RESERVE_SUCCESS = 1L;
+
 	private final StringRedisTemplate redisTemplate;
 	private final RedisScript<Long> reserveStockScript;
 
 	public boolean reserveStock(Long productId) {
-		String stockKey = "stock:product:" + productId;
+		String stockKey = buildStockKey(productId);
 		Long result = redisTemplate.execute(reserveStockScript, List.of(stockKey));
-		return result != null && result == 1;
+		return RESERVE_SUCCESS == result;
 	}
 
 	public void rollbackStock(Long productId) {
-		String stockKey = "stock:product:" + productId;
-		redisTemplate.opsForValue().increment(stockKey);
+		redisTemplate.opsForValue().increment(buildStockKey(productId));
+	}
+
+	public int getStock(Long productId) {
+		String value = redisTemplate.opsForValue().get(buildStockKey(productId));
+		return value == null ? 0 : Integer.parseInt(value);
+	}
+
+	private String buildStockKey(Long productId) {
+		return STOCK_KEY_PREFIX + productId;
 	}
 }

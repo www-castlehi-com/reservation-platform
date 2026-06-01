@@ -13,9 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
-
+import com.stay.reservation.bookingpayment.booking.service.RedisStockManager;
 import com.stay.reservation.bookingpayment.checkout.dto.CachedProductInfo;
 import com.stay.reservation.bookingpayment.checkout.dto.CheckoutResponse;
 import com.stay.reservation.bookingpayment.checkout.dto.ProductStatus;
@@ -33,7 +31,7 @@ class CheckoutServiceTest {
 	private UserWalletRepository userWalletRepository;
 
 	@Mock
-	private StringRedisTemplate redisTemplate;
+	private RedisStockManager redisStockManager;
 
 	@InjectMocks
 	private CheckoutService checkoutService;
@@ -57,9 +55,7 @@ class CheckoutServiceTest {
 			UserWallet mockWallet = UserWallet.builder().userId(userId).pointBalance(50000L).build();
 			when(userWalletRepository.findById(userId)).thenReturn(Optional.of(mockWallet));
 
-			ValueOperations<String, String> mockOps = mock(ValueOperations.class);
-			when(redisTemplate.opsForValue()).thenReturn(mockOps);
-			when(mockOps.get("stock:product:" + productId)).thenReturn("5");
+			when(redisStockManager.getStock(productId)).thenReturn(5);
 
 			// when
 			CheckoutResponse response = checkoutService.getCheckout(productId, userId);
@@ -84,9 +80,7 @@ class CheckoutServiceTest {
 			UserWallet mockWallet = UserWallet.builder().userId(userId).pointBalance(50000L).build();
 			when(userWalletRepository.findById(userId)).thenReturn(Optional.of(mockWallet));
 
-			ValueOperations<String, String> mockOps = mock(ValueOperations.class);
-			when(redisTemplate.opsForValue()).thenReturn(mockOps);
-			when(mockOps.get("stock:product:" + productId)).thenReturn("0");
+			when(redisStockManager.getStock(productId)).thenReturn(0);
 
 			// when
 			CheckoutResponse response = checkoutService.getCheckout(productId, userId);
@@ -105,9 +99,7 @@ class CheckoutServiceTest {
 				LocalDateTime.now().minusHours(1));
 			when(cachedProductService.getProductInfo(productId)).thenReturn(mockProductInfo);
 
-			ValueOperations<String, String> mockOps = mock(ValueOperations.class);
-			when(redisTemplate.opsForValue()).thenReturn(mockOps);
-			when(mockOps.get("stock:product:" + productId)).thenReturn("5");
+			when(redisStockManager.getStock(productId)).thenReturn(5);
 
 			when(userWalletRepository.findById(userId)).thenReturn(Optional.empty());
 

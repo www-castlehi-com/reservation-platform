@@ -1,10 +1,8 @@
 package com.stay.reservation.bookingpayment.booking.service;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import com.stay.reservation.bookingpayment.booking.domain.Booking;
@@ -15,6 +13,7 @@ import com.stay.reservation.bookingpayment.common.exception.DuplicateBookingExce
 import com.stay.reservation.bookingpayment.common.exception.IdempotencyConflictException;
 import com.stay.reservation.bookingpayment.common.exception.PriceMismatchException;
 import com.stay.reservation.bookingpayment.common.exception.ProductNotFoundException;
+import com.stay.reservation.bookingpayment.common.exception.SoldOutException;
 import com.stay.reservation.bookingpayment.common.exception.UserNotFoundException;
 import com.stay.reservation.bookingpayment.payment.exception.PaymentFailedException;
 import com.stay.reservation.bookingpayment.payment.model.CompositePaymentResult;
@@ -32,25 +31,23 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BookingService {
 
-	private static final String LOCK_KEY_PREFIX = "idempotency:lock:";
-	private static final Duration LOCK_TTL = Duration.ofSeconds(10);
 	private final BookingRepository bookingRepository;
 	private final ProductRepository productRepository;
 	private final UserWalletRepository userWalletRepository;
-	private final StringRedisTemplate redisTemplate;
+	private final IdempotencyLockManager idempotencyLockManager;
 	private final RedisStockManager redisStockManager;
 	private final PaymentProcessor paymentProcessor;
 	private final PaymentCommandMapper paymentCommandMapper;
 	private final BookingPersistenceService bookingPersistenceService;
 
 	public BookingResponse createBooking(BookingRequest request, Long userId, String idempotencyKey) {
-		BookingResponse existing = checkIdempotency(idempotencyKey);
-		if (existing != null) {
-			log.info("Idempotent hit. Returning existing booking: {}", existing.bookingId());
-			return existing;
+		Optional<BookingResponse> existing = findExistingBooking(idempotencyKey);
+		if (existing.isPresent()) {
+			log.info("Idempotent hit. Returning existing booking: {}", existing.get().bookingId());
+			return existing.get();
 		}
 
-		String lockKey = acquireIdempotencyLock(idempotencyKey);
+		String lockKey = idempotencyLockManager.acquire(idempotencyKey);
 
 		boolean stockDeducted = false;
 		CompositePaymentResult paymentResult = null;
@@ -74,35 +71,20 @@ public class BookingService {
 
 		} catch (DuplicateBookingException | IdempotencyConflictException e) {
 			throw e;
+		} catch (UserNotFoundException | ProductNotFoundException | PriceMismatchException | SoldOutException e) {
+			log.warn("Booking validation failed. idempotencyKey={}", idempotencyKey, e);
+			throw e;
 		} catch (Exception e) {
 			log.error("Booking failed. idempotencyKey={}", idempotencyKey, e);
 			compensate(stockDeducted, paymentResult, request.productId(), idempotencyKey);
 			throw e;
 		} finally {
-			releaseIdempotencyLock(lockKey);
+			idempotencyLockManager.release(lockKey);
 		}
 	}
 
-	public BookingResponse checkIdempotency(String idempotencyKey) {
-		Optional<Booking> existingBooking = bookingRepository.findByIdempotencyKey(idempotencyKey);
-		return existingBooking.map(BookingResponse::from).orElse(null);
-	}
-
-	private String acquireIdempotencyLock(String idempotencyKey) {
-		String lockKey = LOCK_KEY_PREFIX + idempotencyKey;
-		Boolean locked = redisTemplate.opsForValue().setIfAbsent(lockKey, "PROCESSING", LOCK_TTL);
-		if (!Boolean.TRUE.equals(locked)) {
-			throw new IdempotencyConflictException(idempotencyKey);
-		}
-		return lockKey;
-	}
-
-	private void releaseIdempotencyLock(String lockKey) {
-		try {
-			redisTemplate.delete(lockKey);
-		} catch (Exception e) {
-			log.error("Failed to release lock key={}", lockKey, e);
-		}
+	private Optional<BookingResponse> findExistingBooking(String idempotencyKey) {
+		return bookingRepository.findByIdempotencyKey(idempotencyKey).map(BookingResponse::from);
 	}
 
 	private Product getProductAndValidatePrice(Long productId, Long requestAmount) {
@@ -114,7 +96,7 @@ public class BookingService {
 
 	private void reserveStock(Long productId) {
 		if (!redisStockManager.reserveStock(productId)) {
-			throw new com.stay.reservation.bookingpayment.common.exception.SoldOutException(productId);
+			throw new SoldOutException(productId);
 		}
 	}
 

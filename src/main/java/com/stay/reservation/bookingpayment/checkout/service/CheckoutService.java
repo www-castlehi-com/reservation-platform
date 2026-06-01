@@ -3,10 +3,10 @@ package com.stay.reservation.bookingpayment.checkout.service;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.stay.reservation.bookingpayment.booking.service.RedisStockManager;
 import com.stay.reservation.bookingpayment.checkout.dto.CachedProductInfo;
 import com.stay.reservation.bookingpayment.checkout.dto.CheckoutResponse;
 import com.stay.reservation.bookingpayment.checkout.dto.ProductCheckoutInfo;
@@ -25,12 +25,12 @@ public class CheckoutService {
 
 	private final CachedProductService cachedProductService;
 	private final UserWalletRepository userWalletRepository;
-	private final StringRedisTemplate redisTemplate;
+	private final RedisStockManager redisStockManager;
 
 	@Transactional(readOnly = true)
 	public CheckoutResponse getCheckout(Long productId, Long userId) {
 		CachedProductInfo cachedProductInfo = cachedProductService.getProductInfo(productId);
-		int remainingStock = getRemainingStock(productId);
+		int remainingStock = redisStockManager.getStock(productId);
 
 		UserWallet wallet = userWalletRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
 
@@ -40,12 +40,6 @@ public class CheckoutService {
 		UserWalletInfo walletInfo = UserWalletInfo.from(wallet);
 
 		return new CheckoutResponse(productCheckoutInfo, walletInfo, List.of(PaymentType.values()));
-	}
-
-	private int getRemainingStock(Long productId) {
-		String key = "stock:product:" + productId;
-		String value = redisTemplate.opsForValue().get(key);
-		return value == null ? 0 : Integer.parseInt(value);
 	}
 
 	private ProductStatus computeStatus(LocalDateTime openAt, int stock) {
