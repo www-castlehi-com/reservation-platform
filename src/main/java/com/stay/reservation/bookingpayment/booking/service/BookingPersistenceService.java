@@ -19,8 +19,11 @@ import com.stay.reservation.bookingpayment.payment.domain.PaymentStatus;
 import com.stay.reservation.bookingpayment.payment.domain.PaymentStep;
 import com.stay.reservation.bookingpayment.payment.model.CompositePaymentResult;
 import com.stay.reservation.bookingpayment.payment.model.PaymentResult;
+import com.stay.reservation.bookingpayment.payment.model.PaymentType;
 import com.stay.reservation.bookingpayment.payment.repository.PaymentHistoryRepository;
 import com.stay.reservation.bookingpayment.payment.repository.PaymentRepository;
+import com.stay.reservation.bookingpayment.point.domain.PointTransaction;
+import com.stay.reservation.bookingpayment.point.repository.PointTransactionRepository;
 import com.stay.reservation.bookingpayment.product.domain.Product;
 
 import lombok.RequiredArgsConstructor;
@@ -34,6 +37,7 @@ public class BookingPersistenceService {
 	private final BookingRepository bookingRepository;
 	private final PaymentRepository paymentRepository;
 	private final PaymentHistoryRepository paymentHistoryRepository;
+	private final PointTransactionRepository pointTransactionRepository;
 
 	@Transactional
 	public Booking persistBookingAndPayments(BookingRequest request, Long userId, String idempotencyKey,
@@ -73,6 +77,20 @@ public class BookingPersistenceService {
 				.transactionId(result.transactionId())
 				.build();
 			paymentHistoryRepository.save(history);
+
+			// Y_POINT 결제 수단인 경우, 생성 완료된 bookingId를 포인트 거래 내역에 연계 저장
+			if (result.paymentType() == PaymentType.Y_POINT && result.transactionId() != null) {
+				try {
+					Long txId = Long.parseLong(result.transactionId());
+					pointTransactionRepository.findById(txId).ifPresent(tx -> {
+						tx.updateBookingId(savedBooking.getId());
+						pointTransactionRepository.save(tx);
+						log.info("Successfully linked PointTransaction ID {} with Booking ID {}", txId, savedBooking.getId());
+					});
+				} catch (Exception ex) {
+					log.error("Failed to link PointTransaction with Booking ID. txId={}", result.transactionId(), ex);
+				}
+			}
 		}
 
 		return savedBooking;

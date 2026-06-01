@@ -62,4 +62,8 @@ public class PointTransaction {
 	@CreatedDate
 	@Column(updatable = false)
 	private LocalDateTime createdAt;
+
+	public void updateBookingId(Long bookingId) {
+		this.bookingId = bookingId;
+	}
 }
