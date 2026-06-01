@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.stay.reservation.bookingpayment.payment.exception.InsufficientPointException;
+import com.stay.reservation.bookingpayment.payment.exception.PaymentFailedException;
+import com.stay.reservation.bookingpayment.payment.model.CompositePaymentResult;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -85,6 +87,21 @@ public class GlobalExceptionHandler {
 			.body(new ErrorResponse("INSUFFICIENT_POINT", exception.getMessage()));
 	}
 
+	@ExceptionHandler(PaymentFailedException.class)
+	public ResponseEntity<PaymentFailedErrorResponse> handlePaymentFailed(PaymentFailedException exception) {
+		log.warn("Payment failed: {}", exception.getMessage());
+
+		CompositePaymentResult result = exception.getResult();
+		PaymentFailedErrorResponse body = new PaymentFailedErrorResponse(
+			"PAYMENT_FAILED",
+			exception.getMessage(),
+			result.failedPaymentType(),
+			result.compensationCompleted()
+		);
+
+		return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(body);
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGenericException(Exception exception) {
 		log.error("Unexpected error occurred", exception);
@@ -95,4 +112,11 @@ public class GlobalExceptionHandler {
 	public record ErrorResponse(String errorCode, String message) {
 
 	}
+
+	public record PaymentFailedErrorResponse(
+		String errorCode,
+		String message,
+		com.stay.reservation.bookingpayment.payment.model.PaymentType failedPaymentType,
+		boolean compensationCompleted
+	) {}
 }

@@ -19,4 +19,8 @@ public record CompositePaymentResult(boolean success, List<PaymentResult> paymen
 		return new CompositePaymentResult(false, Collections.emptyList(), failedPaymentType, failureReason,
 			compensationCompleted);
 	}
+
+	public boolean isAllSuccess() {
+		return success;
+	}
 }
