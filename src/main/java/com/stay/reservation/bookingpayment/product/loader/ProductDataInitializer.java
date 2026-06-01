@@ -32,10 +32,25 @@ public class ProductDataInitializer implements CommandLineRunner {
 	private final StringRedisTemplate redisTemplate;
 
 	@Override
-	@Transactional
 	public void run(String... args) {
 		log.info("Starting data initialization: RoomType → Product → UserWallet...");
 
+		try {
+			executeSeeding();
+			log.info("Data initialization flow finished successfully.");
+		} catch (Exception e) {
+			log.warn("Data initialization encountered a conflict, likely due to concurrent seeding from another instance. Skipping DB seed. message={}", e.getMessage());
+		}
+
+		try {
+			warmUpRedisStock();
+		} catch (Exception e) {
+			log.error("Failed to warm up Redis stock cache", e);
+		}
+	}
+
+	@Transactional
+	public void executeSeeding() {
 		if (productRepository.count() > 0) {
 			log.info("Database is already seeded. Skipping DB initialization.");
 
@@ -45,25 +60,24 @@ public class ProductDataInitializer implements CommandLineRunner {
 				userWalletRepository.deleteAll();
 				seedUserWallets();
 			}
-
-			log.info("Starting Redis stock cache warm-up for existing products...");
-			List<Product> products = productRepository.findAll();
-			for (Product product : products) {
-				String key = "stock:product:" + product.getId();
-				redisTemplate.opsForValue().set(key, String.valueOf(product.getTotalStock()));
-			}
-			log.info("Redis stock cache warm-up complete for {} existing products.", products.size());
 			return;
 		}
 
 		seedRoomTypesAndProducts();
 		seedUserWallets();
+	}
 
-		log.info("Data initialization complete.");
+	private void warmUpRedisStock() {
+		log.info("Starting Redis stock cache warm-up for existing products...");
+		List<Product> products = productRepository.findAll();
+		for (Product product : products) {
+			String key = "stock:product:" + product.getId();
+			redisTemplate.opsForValue().set(key, String.valueOf(product.getTotalStock()));
+		}
+		log.info("Redis stock cache warm-up complete for {} existing products.", products.size());
 	}
 
 	private void seedRoomTypesAndProducts() {
-		// ── Step 1. RoomType 저장 ────────────────────────────────────────────────
 		RoomType suiteRoom = roomTypeRepository.save(RoomType.builder()
 			.title("신라호텔 서울 프리미어 스위트룸")
 			.originalPrice(600000L)
@@ -73,25 +87,15 @@ public class ProductDataInitializer implements CommandLineRunner {
 
 		log.info("Step 1 — RoomType 저장 완료: suiteId={}", suiteRoom.getId());
 
-		// ── Step 2. Product 저장 (날짜별 SKU, 총 10개, 각 재고 10개 한정) ─────────────
 		List<Product> products = new ArrayList<>();
-		LocalDate baseDate = LocalDate.of(2026, 12, 24); // 기준일 (크리스마스 이브)
-		LocalDateTime openNow = LocalDateTime.now().minusHours(1); // 즉시 예약 가능하도록 세팅
+		LocalDate baseDate = LocalDate.of(2026, 12, 24);
+		LocalDateTime openNow = LocalDateTime.now().minusHours(1);
 
-		// 스위트룸 3개 상품 등록 (12/24 ~ 12/26 투숙)
-		products.add(Product.builder().roomTypeId(suiteRoom.getId()).stayDate(baseDate).price(159000L) // 스위트 초특가 15.9만
+		products.add(Product.builder().roomTypeId(suiteRoom.getId()).stayDate(baseDate).price(159000L)
 			.totalStock(10).openAt(openNow).build());
 
-		List<Product> savedProducts = productRepository.saveAll(products);
+		productRepository.saveAll(products);
 		log.info("Step 2 — Product 저장 완료: 총 10개 상품 등록 완료");
-
-		// ── Step 2-1. Redis 실시간 재고(stock:product:{id}) 웜업 ──────────────────
-		log.info("Step 2-1 — Redis 실시간 재고 키 웜업 시작...");
-		for (Product savedProduct : savedProducts) {
-			String key = "stock:product:" + savedProduct.getId();
-			redisTemplate.opsForValue().set(key, String.valueOf(savedProduct.getTotalStock()));
-		}
-		log.info("Step 2-1 — Redis 실시간 재고 웜업 완료: 10개 상품 재고 각 10개로 웜업 완료");
 	}
 
 	private void seedUserWallets() {
