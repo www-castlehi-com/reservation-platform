@@ -75,6 +75,10 @@ public class BookingService {
 			log.warn("Booking validation failed. idempotencyKey={}", idempotencyKey, e);
 			compensate(stockDeducted, paymentResult, request.productId(), idempotencyKey);
 			throw e;
+		} catch (PaymentFailedException e) {
+			log.error("Booking failed due to payment failure. idempotencyKey={}", idempotencyKey, e);
+			compensate(stockDeducted, e.getResult(), request.productId(), idempotencyKey);
+			throw e;
 		} catch (Exception e) {
 			log.error("Booking failed. idempotencyKey={}", idempotencyKey, e);
 			compensate(stockDeducted, paymentResult, request.productId(), idempotencyKey);

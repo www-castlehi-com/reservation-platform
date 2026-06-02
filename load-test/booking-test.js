@@ -39,6 +39,13 @@ const allScenarios = {
 		iterations: 100,
 		maxDuration: '10s',
 	},
+	// 4. saga_decline: 카드 결제 한도 초과 거절에 따른 포인트 및 재고 SAGA 보상 검증 시나리오
+	saga_decline: {
+		executor: 'shared-iterations',
+		vus: 10,
+		iterations: 10, // 10명이 1번씩 -> 모두 카드 거절
+		maxDuration: '30s',
+	},
 };
 
 export const options = {
@@ -62,15 +69,21 @@ export default function () {
     const productId = 1;
     let userId;
     let idempotencyKey;
+    let cardToken;
 
-    // 실행된 시나리오가 'idempotency'일 경우 연타 공격
     if (scenario === 'idempotency') {
-        userId = 1000 + __VU; // VU 번호에 따라 유저 격리
-        idempotencyKey = FIXED_KEYS[__VU - 1]; // 해당 VU가 던지는 100번의 요청은 전부 '동일한 키'로 고정
+        userId = 1000 + __VU;
+        idempotencyKey = FIXED_KEYS[__VU - 1];
+        cardToken = 'tok_test_concurrency_gate';
+    } else if (scenario === 'saga_decline') {
+        // 사용자 격리 (1001~1010), 각자 별도 idempotency_key
+        userId = 1000 + __VU;
+        idempotencyKey = uuidv4();
+        cardToken = 'tok_decline_limit_exceeded'; // MockPgClient가 거절
     } else {
-        // 일반적인 선착순 트래픽 및 부하 시뮬레이션
         userId = USER_IDS[Math.floor(Math.random() * USER_IDS.length)];
         idempotencyKey = uuidv4();
+        cardToken = 'tok_test_concurrency_gate';
     }
 
     const payload = JSON.stringify({
@@ -81,7 +94,7 @@ export default function () {
                 {
                     type: 'CREDIT_CARD',
                     amount: 149000,
-                    cardToken: 'tok_test_concurrency_gate'
+                    cardToken: cardToken // 시나리오별로 다른 토큰
                 },
                 {
                     type: 'Y_POINT',
@@ -103,12 +116,16 @@ export default function () {
 
     const res = http.post(`${baseUrl}/bookings`, payload, params);
 
-    // 시나리오별 검증 바운더리 설정
     let ok;
     if (scenario === 'idempotency') {
-        // 멱등성 시나리오의 경우: 100번 중 1번만 성공(200 or 201)하고, 나머지 99번은 중복 에러(409 or 422)가 나야 정상
         ok = check(res, {
             'is processed or blocked gracefully': (r) => r.status === 200 || r.status === 201 || r.status === 409 || r.status === 422,
+        });
+    } else if (scenario === 'saga_decline') {
+        // 카드 거절 -> 402 PAYMENT_FAILED 예상 (또는 GlobalExceptionHandler 매핑 따라)
+        ok = check(res, {
+            'payment correctly declined': (r) => r.status >= 400 && r.status < 600,
+            'has error body': (r) => r.body && r.body.length > 0,
         });
     } else {
         ok = check(res, {

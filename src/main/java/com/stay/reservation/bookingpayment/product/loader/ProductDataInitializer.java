@@ -35,11 +35,32 @@ public class ProductDataInitializer implements CommandLineRunner {
 	public void run(String... args) {
 		log.info("Starting data initialization: RoomType → Product → UserWallet...");
 
+		String lockKey = "lock:data_seed";
+		boolean acquired = false;
+
 		try {
-			executeSeeding();
-			log.info("Data initialization flow finished successfully.");
+			// 최대 5초 동안 100ms 간격으로 Redis 분산 락 획득 시도
+			for (int i = 0; i < 50; i++) {
+				Boolean success = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", java.time.Duration.ofSeconds(10));
+				if (Boolean.TRUE.equals(success)) {
+					acquired = true;
+					break;
+				}
+				Thread.sleep(100);
+			}
+
+			if (acquired) {
+				executeSeeding();
+				log.info("Data initialization flow finished successfully.");
+			} else {
+				log.info("Another instance is holding the lock. Skipping DB initialization check.");
+			}
 		} catch (Exception e) {
 			log.warn("Data initialization encountered a conflict, likely due to concurrent seeding from another instance. Skipping DB seed. message={}", e.getMessage());
+		} finally {
+			if (acquired) {
+				redisTemplate.delete(lockKey);
+			}
 		}
 
 		try {
