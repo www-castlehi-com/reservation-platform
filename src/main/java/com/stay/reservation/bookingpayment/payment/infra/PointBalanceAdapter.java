@@ -66,23 +66,24 @@ public class PointBalanceAdapter implements PointBalancePort {
 			return pointTransactionId;
 		}
 
-		PointTransaction originalTx = pointTransactionRepository.findById(originalTransactionId)
+		PointTransaction originalTransaction = pointTransactionRepository.findById(originalTransactionId)
 			.orElseThrow(() -> new IllegalStateException("Original tx not found: " + originalTransactionId));
 
-		UserWallet wallet = userWalletRepository.findById(originalTx.getUserId())
-			.orElseThrow(() -> new UserNotFoundException(originalTx.getUserId()));
+		UserWallet wallet = userWalletRepository.findById(originalTransaction.getUserId())
+			.orElseThrow(() -> new UserNotFoundException(originalTransaction.getUserId()));
 
 		long balanceBefore = wallet.getPointBalance();
 		wallet.addPoint(amount);
 		userWalletRepository.save(wallet);
 
 		PointTransaction restoreTransaction = PointTransaction.builder()
-			.userId(originalTx.getUserId())
+			.userId(originalTransaction.getUserId())
 			.amount(amount)
 			.type(PointTransactionType.RESTORE)
 			.balanceBefore(balanceBefore)
 			.balanceAfter(wallet.getPointBalance())
 			.originalTransactionId(originalTransactionId)
+			.idempotencyKey(originalTransaction.getIdempotencyKey())
 			.build();
 
 		PointTransaction saved = pointTransactionRepository.save(restoreTransaction);
